@@ -61,7 +61,7 @@ if exists('g:chat_gpt_custom_persona')
 endif
 "
 " Function to show ChatGPT responses in a new buffer
-function! DisplayChatGPTResponse(response, finish_reason, chat_gpt_session_id)
+function! DisplayChatGPTResponse(response, finish_reason, chat_gpt_session_id, scroll)
   let response = a:response
   let finish_reason = a:finish_reason
 
@@ -102,12 +102,20 @@ function! DisplayChatGPTResponse(response, finish_reason, chat_gpt_session_id)
     call add(clean_lines, substitute(line, '\r', '', 'g'))
   endfor
 
+  execute bufwinnr(chat_gpt_session_id) . 'wincmd w'
+  let saved_view = winsaveview()
+  call cursor('$', 1)
   call setbufline(chat_gpt_session_id, '$', clean_lines)
 
-  execute bufwinnr(chat_gpt_session_id) . 'wincmd w'
-  " Move the viewport to the bottom of the buffer
-  normal! G
-  call cursor('$', 1)
+  if a:scroll != ''
+    " Move the viewport to the bottom of the buffer
+    normal! Gkzt
+    " Move the line to top
+    " normal! k
+    " normal! zt
+  else
+    call winrestview(saved_view)
+  endif
 
   if finish_reason != ''
     wincmd p
@@ -221,7 +229,7 @@ def chat_gpt(prompt):
   if session_id:
     content = '\n\n>>>User:\n' + prompt + '\n\n>>>Assistant:\n'.replace("'", "''")
 
-    vim.command("call DisplayChatGPTResponse('{0}', '', '{1}')".format(content.replace("'", "''"), session_id))
+    vim.command("call DisplayChatGPTResponse('{0}', '', '{1}', 'Y')".format(content.replace("'", "''"), session_id))
     vim.command("redraw")
 
   messages.append({"role": "user", "content": prompt})
@@ -258,9 +266,9 @@ def chat_gpt(prompt):
 
       # Call DisplayChatGPTResponse with the finish_reason or content
       if finish_reason:
-        vim.command("call DisplayChatGPTResponse('', '{0}', '{1}')".format(finish_reason.replace("'", "''"), chunk_session_id))
+        vim.command("call DisplayChatGPTResponse('', '{0}', '{1}', '')".format(finish_reason.replace("'", "''"), chunk_session_id))
       elif content:
-        vim.command("call DisplayChatGPTResponse('{0}', '', '{1}')".format(content.replace("'", "''"), chunk_session_id))
+        vim.command("call DisplayChatGPTResponse('{0}', '', '{1}', '')".format(content.replace("'", "''"), chunk_session_id))
 
       vim.command("redraw")
 
