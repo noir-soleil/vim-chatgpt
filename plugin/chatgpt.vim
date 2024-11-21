@@ -175,6 +175,8 @@ def chat_gpt(prompt):
   max_tokens = int(vim.eval('g:chat_gpt_max_tokens'))
   model = str(vim.eval('g:chat_gpt_model'))
   temperature = float(vim.eval('g:chat_gpt_temperature'))
+  if model.startswith('o1'):
+    temperature = 1.0
   lang = str(vim.eval('g:chat_gpt_lang'))
   resp = lang and f" And respond in {lang}." or ""
 
@@ -182,6 +184,8 @@ def chat_gpt(prompt):
   persona  = str(vim.eval('g:chat_persona'))
 
   systemCtx = {"role": "system", "content": f"{personas[persona]} {resp}"}
+  if model.startswith('o1'):
+    systemCtx = None
   messages = []
   session_id = 'gpt-persistent-session' if int(vim.eval('exists("g:chat_gpt_session_mode") ? g:chat_gpt_session_mode : 1')) == 1 else None
 
@@ -200,7 +204,7 @@ def chat_gpt(prompt):
     history.reverse()
 
     # Adding messages to history until token limit is reached
-    token_count = token_limits.get(model, 4097) - max_tokens - len(prompt) - len(str(systemCtx))
+    token_count = token_limits.get(model, 4097) - max_tokens - len(prompt) - (len(str(systemCtx)) if systemCtx is not None else 0)
 
     for line in history:
       if ':\n' in line:
@@ -221,7 +225,8 @@ def chat_gpt(prompt):
     vim.command("redraw")
 
   messages.append({"role": "user", "content": prompt})
-  messages.insert(0, systemCtx)
+  if systemCtx is not None:
+    messages.insert(0, systemCtx)
 
   try:
     client = create_client()
@@ -230,6 +235,12 @@ def chat_gpt(prompt):
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
+        stream=True
+    ) if not model.startswith('o1') else client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temperature,
+        max_completion_tokens=max_tokens,
         stream=True
     )
 
